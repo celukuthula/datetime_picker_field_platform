@@ -1,4 +1,4 @@
-import 'package:jiffy/jiffy.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 
 import 'constants/constants.dart';
@@ -32,58 +32,23 @@ class DateTimeFieldPlatform extends StatefulWidget {
     this.timeFormatter = timeFormat,
   }) : super(key: key);
 
-  /// Optional, the date type to use. Default is [DateMode.date].
   final DateMode mode;
-
-  /// Optional, this is used to indicate to the user what they are selecting a date for. Default is [Select].
   final String? title;
-
-  /// Optional, format applied when selecting a [DateMode.date]. Default is [dd/MM/yyyy].
   final String? dateFormatter;
-
-  /// Optional, format applied when selecting a [DateMode.time]. Default is [hh:mm aa].
   final String? timeFormatter;
-
-  /// Optional, text to display on the cancel button. Default is [Cancel].
   final String? textCancel;
-
-  /// Optional, text to display on the confirm button. Default is [Confirm].
   final String? textConfirm;
-
-  /// Optional, init date. Default is current date.
   final DateTime? initialDate;
-
-  /// Required, maximum date that can be selected.
   final DateTime maximumDate;
-
-  /// Required, minimum date that can be selected.
   final DateTime minimumDate;
-
-  /// Optional, this to be applied to the style of the [TextFormField].
   final TextStyle? inputStyle;
-
-  /// Optional, this to be applied to the style of the [title].
   final TextStyle? titleStyle;
-
-  /// Optional, this to be applied to the style of the [textCancel].
   final TextStyle? textCancelStyle;
-
-  /// Optional, this to be applied to the style of the [textConfirm].
   final TextStyle? textConfirmStyle;
-
-  /// Optional, this to be applied to the decoration of the [TextFormField].
   final InputDecoration? decoration;
-
-  /// Optional, called when the cancel button is pressed.
   final VoidCallback? onCancel;
-
-  /// Optional, called when the confirm button is pressed
   final Function(DateTime)? onConfirm;
-
-  /// Optional, this is the controller of the [TextFormField].
   final TextEditingController? controller;
-
-  /// Optional, this will be applied to the validator of the [TextFormField].
   final FormFieldValidator<String>? validator;
 
   @override
@@ -91,18 +56,15 @@ class DateTimeFieldPlatform extends StatefulWidget {
 }
 
 class _DateTimeFieldPlatformState extends State<DateTimeFieldPlatform> {
-  Jiffy selectedDate = Jiffy();
+  late DateTime selectedDate;
   late TextEditingController _controller;
 
   @override
   void initState() {
-    _controller = widget.controller ?? TextEditingController();
-
-    if (widget.initialDate != null) {
-      selectedDate = Jiffy(widget.initialDate);
-      _controller.text = selectedDate.format(_getFormattedDate());
-    }
     super.initState();
+    _controller = widget.controller ?? TextEditingController();
+    selectedDate = widget.initialDate ?? DateTime.now();
+    _controller.text = DateFormat(_getFormattedDate()).format(selectedDate);
   }
 
   @override
@@ -127,10 +89,9 @@ class _DateTimeFieldPlatformState extends State<DateTimeFieldPlatform> {
   }
 
   String _getFormattedDate() {
-    if (widget.mode == DateMode.date) {
-      return widget.dateFormatter!;
-    }
-    return widget.timeFormatter!;
+    return widget.mode == DateMode.date 
+      ? (widget.dateFormatter ?? 'dd/MM/yyyy') 
+      : (widget.timeFormatter ?? 'hh:mm aa');
   }
 
   void tootlePicker() {
@@ -147,40 +108,34 @@ class _DateTimeFieldPlatformState extends State<DateTimeFieldPlatform> {
   Future<void> showPickerDateTimeAndroid() async {
     switch (widget.mode) {
       case DateMode.time:
-        {
-          final TimeOfDay? picked = await showTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(selectedDate.dateTime),
-            cancelText: widget.textCancel,
-            confirmText: widget.textConfirm,
-            helpText: widget.title,
-          );
-          if (picked != null &&
-              picked != TimeOfDay.fromDateTime(selectedDate.dateTime)) {
-            final parseSelectedDate = _parseSelectedDate(picked);
-            _controller.text =
-                Jiffy(parseSelectedDate).format(_getFormattedDate());
-            selectedDate = Jiffy(parseSelectedDate);
-            widget.onConfirm?.call(parseSelectedDate);
-          }
+        final TimeOfDay? picked = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay.fromDateTime(selectedDate),
+          cancelText: widget.textCancel,
+          confirmText: widget.textConfirm,
+          helpText: widget.title,
+        );
+        if (picked != null) {
+          final parseSelectedDate = _parseSelectedDate(picked);
+          _controller.text = DateFormat(_getFormattedDate()).format(parseSelectedDate);
+          selectedDate = parseSelectedDate;
+          widget.onConfirm?.call(parseSelectedDate);
         }
         break;
       default:
-        {
-          final DateTime? picked = await showDatePicker(
-            context: context,
-            cancelText: widget.textCancel,
-            confirmText: widget.textConfirm,
-            helpText: widget.title,
-            initialDate: selectedDate.dateTime,
-            firstDate: widget.minimumDate,
-            lastDate: widget.maximumDate,
-          );
-          if (picked != null && picked != selectedDate.dateTime) {
-            selectedDate = Jiffy(picked);
-            _controller.text = selectedDate.format(_getFormattedDate());
-            widget.onConfirm?.call(selectedDate.dateTime);
-          }
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          cancelText: widget.textCancel,
+          confirmText: widget.textConfirm,
+          helpText: widget.title,
+          initialDate: selectedDate,
+          firstDate: widget.minimumDate,
+          lastDate: widget.maximumDate,
+        );
+        if (picked != null) {
+          selectedDate = picked;
+          _controller.text = DateFormat(_getFormattedDate()).format(selectedDate);
+          widget.onConfirm?.call(selectedDate);
         }
     }
   }
@@ -202,27 +157,27 @@ class _DateTimeFieldPlatformState extends State<DateTimeFieldPlatform> {
   }
 
   Widget _renderDatetimeIOS() {
-    DateTime changeDate = selectedDate.dateTime;
+    DateTime changeDate = selectedDate;
 
     return DateTimePickerIOS(
       mode: widget.mode,
-      title: widget.title!,
-      textCancel: widget.textCancel!,
-      textConfirm: widget.textConfirm!,
+      title: widget.title ?? "Select",
+      textCancel: widget.textCancel ?? "Cancel",
+      textConfirm: widget.textConfirm ?? "Confirm",
       onCancel: () {
         widget.onCancel?.call();
         Navigator.of(context).pop();
       },
       onConfirm: () {
-        _controller.text = Jiffy(changeDate).format(_getFormattedDate());
-        selectedDate = Jiffy(changeDate);
+        _controller.text = DateFormat(_getFormattedDate()).format(changeDate);
+        selectedDate = changeDate;
         widget.onConfirm?.call(changeDate);
         Navigator.of(context).pop();
       },
       onDateTimeChanged: (value) {
         changeDate = value;
       },
-      initialDateTime: selectedDate.dateTime,
+      initialDateTime: selectedDate,
       minimumDate: widget.minimumDate,
       maximumDate: widget.maximumDate,
       titleStyle: widget.titleStyle,
@@ -232,7 +187,7 @@ class _DateTimeFieldPlatformState extends State<DateTimeFieldPlatform> {
   }
 
   DateTime _parseSelectedDate(TimeOfDay selectedTime) {
-    return DateTime.utc(
+    return DateTime(
       selectedDate.year,
       selectedDate.month,
       selectedDate.day,
